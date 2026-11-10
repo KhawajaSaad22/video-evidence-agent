@@ -1,0 +1,4 @@
+[
+ {"video_id":"fictional-repair","start":12,"end":19,"description":"Technician disconnects battery connector","frame_paths":[]},
+ {"video_id":"fictional-repair","start":20,"end":35,"description":"Technician removes battery from housing","frame_paths":[]}
+]

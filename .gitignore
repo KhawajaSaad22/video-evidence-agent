@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+data/
+artifacts/
+demo-result.json
+verified-result.json
