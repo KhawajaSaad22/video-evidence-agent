@@ -3,6 +3,7 @@ import argparse
 import base64
 import io
 import json
+import os
 from pathlib import Path
 import urllib.request
 import numpy as np
@@ -34,7 +35,8 @@ class OllamaVerifier:
                 'Return observation and zero-based evidence_frames referring to these supplied images.')
         payload=dict(model=self.model,stream=False,format=SCHEMA,options={'temperature':0},
                      messages=[dict(role='user',content=prompt,images=encoded)])
-        request=urllib.request.Request('http://localhost:11434/api/chat',data=json.dumps(payload).encode(),headers={'Content-Type':'application/json'})
+        endpoint=os.environ.get('OLLAMA_BASE_URL','http://localhost:11434').rstrip('/')+'/api/chat'
+        request=urllib.request.Request(endpoint,data=json.dumps(payload).encode(),headers={'Content-Type':'application/json'})
         with urllib.request.urlopen(request,timeout=180) as response: result=json.loads(json.load(response)['message']['content'])
         return validate(result,len(images))
 

@@ -108,3 +108,65 @@ python evidence.py sample_evidence.json "battery connector"
 Evaluate temporal IoU, recall at IoU thresholds, answer/evidence correctness, abstention,
 frames inspected, latency, and GPU memory. Split by video, not extracted frame. Restrict
 tools to read-only local media. On the 8 GB GPU, load models sequentially and cache features.
+
+## Docker image
+
+This project has its own CPU image: `ghcr.io/khawajasaad22/video-evidence-agent:latest`.
+Images are stored in GitHub Container Registry; the repository contains the Dockerfile,
+Compose configuration, and build/publish workflow. The workflow tests the image and
+checks the running app before publishing `latest` and a full commit-SHA tag. A failed
+build does not publish. Use the Actions tab to confirm the first successful publication.
+
+With Docker Engine/Desktop and Compose installed, from this repository:
+
+```sh
+docker compose up --build -d
+```
+
+Open http://localhost:8503. To use the registry image after it is published:
+
+```sh
+docker compose pull app
+docker compose up -d --no-build app
+```
+
+If the registry package is private, authenticate with `docker login ghcr.io` using an
+account/token allowed to read the package. Repository visibility alone does not ensure
+anonymous image access. No custom registry secret is needed by the publishing workflow:
+it uses the repository's built-in GitHub token with package-write permission.
+
+The container runs as UID 10001. Named volumes preserve inputs, generated artifacts,
+and downloaded model weights. Weights and private datasets are not baked into the image.
+First model use requires internet access. These are Linux/amd64 CPU images; GPU/CUDA
+acceleration is not included. Initial builds can take several minutes.
+
+Use `docker compose exec app python ...` for the documented CLI commands. Inputs are
+container paths, not Windows host paths. Copy real files with `docker compose cp`:
+
+```sh
+docker compose cp ./my-input app:/app/data/my-input
+docker compose logs -f app
+docker compose down
+```
+
+`down` keeps named volumes; `down -v` deletes them, including your generated work.
+The app port is published on localhost only. Container health means Streamlit is running;
+you still need to prepare data and fit/index models before using the app workflow.
+
+```sh
+docker compose exec app python make_demo.py
+docker compose exec app python video_search.py index data/demo.avi --output artifacts/demo --step 2
+docker compose exec app python video_search.py search artifacts/demo "a blue circle"
+```
+
+### Optional Ollama service
+
+```sh
+docker compose --profile generation up -d
+docker compose exec ollama ollama pull YOUR_MODEL_NAME
+```
+
+Choose a text model for RAG or a vision-capable model for video verification, then enter
+its installed name in the UI. Ollama is accessible only inside the Compose network;
+no host port is published. `OLLAMA_BASE_URL` selects the service endpoint. This optional
+service also runs on CPU. Its model quality and memory needs depend on your selection.
