@@ -22,7 +22,7 @@ python -m unittest -v
 
 The first run downloads `openai/clip-vit-base-patch32` weights. No paid API is used.
 The generated 12-second AVI contains colored shapes and only checks decoding/retrieval;
-it cannot validate repair-video reasoning. To index your own video:
+it cannot validate repair-video reasoning. To index my own video:
 
 ```powershell
 python video_search.py index C:/videos/repair.mp4 --output artifacts/repair --step 2
@@ -149,7 +149,7 @@ docker compose logs -f app
 docker compose down
 ```
 
-`down` keeps named volumes; `down -v` deletes them, including your generated work.
+`down` keeps named volumes; `down -v` deletes them, including my generated work.
 The app port is published on localhost only. Container health means Streamlit is running;
 you still need to prepare data and fit/index models before using the app workflow.
 
@@ -169,4 +169,4 @@ docker compose exec ollama ollama pull YOUR_MODEL_NAME
 Choose a text model for RAG or a vision-capable model for video verification, then enter
 its installed name in the UI. Ollama is accessible only inside the Compose network;
 no host port is published. `OLLAMA_BASE_URL` selects the service endpoint. This optional
-service also runs on CPU. Its model quality and memory needs depend on your selection.
+service also runs on CPU. Its model quality and memory needs depend on my selection.
