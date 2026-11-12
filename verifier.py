@@ -54,6 +54,8 @@ def inspect(question,video,intervals,verifier,frame_budget=12):
             if turn: grid=np.clip(grid+(interval['end']-interval['start'])/(4*(count+1)),interval['start'],np.nextafter(interval['end'],interval['start']))
             for t in grid: images.append(read_frame(video,float(t))); times.append(float(t))
             remaining-=count
+            ordered=sorted(zip(times,images),key=lambda pair:pair[0])
+            times=[pair[0] for pair in ordered]; images=[pair[1] for pair in ordered]
             assessment=validate(verifier(question,images,times),len(images))
             trace.append(dict(action='vlm_assess',frames_added=count,decision=assessment['decision'],interval=[interval['start'],interval['end']]))
             if assessment['decision']!='inspect_more': break

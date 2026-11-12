@@ -1,5 +1,11 @@
 # Video evidence-search agent — project 2
 
+Reliability update: second-pass verifier frames remain chronologically ordered with
+their timestamps and evidence references. In evaluation manifests, use an empty
+`relevant_intervals` list for a negative query. Negative false-positive rate is
+reported separately from positive-query recall. An empty predictions list counts
+as abstention; this does not automatically calibrate raw retrieval scores.
+
 Status: working visual retrieval baseline with a deterministic, budgeted inspection
 controller. Uses CLIP image/text embeddings, cached frames, timestamped candidates,
 fine-grained resampling, a CLI, and a Streamlit interface. An optional local Ollama

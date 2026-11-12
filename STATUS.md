@@ -1,5 +1,11 @@
 # Verified first implementation
 
+Reliability update (12 November 2026): images and timestamps are sorted together
+before each verifier turn, including additional inspection samples. A regression
+test checks reference alignment. Evaluation now accepts unanswerable queries and
+reports their false-positive rate separately from positive-query temporal recall.
+These checks use simulated verification; live model quality remains unverified.
+
 - Real CLIP vision/text model loaded successfully.
 - Generated and decoded a 12-second 320 x 240 MJPG video at 10 FPS.
 - Cached six frame embeddings at a two-second interval.

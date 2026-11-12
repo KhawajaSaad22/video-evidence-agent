@@ -17,6 +17,12 @@ class Tests(unittest.TestCase):
         result=evaluate([dict(relevant_intervals=[[4,8]],predictions=[dict(start=5,end=7)])])
         self.assertEqual(result[1]['recall_at_3'],1)
         self.assertEqual(result[2]['recall_at_3'],0)
+    def test_negative_queries_are_scored_separately(self):
+        from evaluate import evaluate
+        result=evaluate([dict(relevant_intervals=[],predictions=[]),
+                         dict(relevant_intervals=[],predictions=[dict(start=0,end=1)])])
+        self.assertIsNone(result[0]['recall_at_3'])
+        self.assertEqual(result[-1]['negative_false_positive_rate'],.5)
     def test_verifier_budget_and_abstention(self):
         from verifier import inspect
         from unittest.mock import patch
@@ -28,4 +34,20 @@ class Tests(unittest.TestCase):
     def test_verifier_rejects_unknown_evidence(self):
         from verifier import validate
         with self.assertRaises(ValueError): validate(dict(decision='supported',observation='visible',evidence_frames=[5]),2)
+
+    def test_second_pass_preserves_chronological_image_references(self):
+        from verifier import inspect
+        from unittest.mock import patch
+        seen=[]
+        def verify(question,images,times):
+            self.assertEqual(times,sorted(times))
+            self.assertEqual(images,times)
+            seen.append(list(times))
+            return dict(decision='inspect_more' if len(seen)==1 else 'supported',
+                        observation='visible',evidence_frames=[1])
+        with patch('verifier.read_frame',side_effect=lambda video,t:t):
+            result=inspect('event','unused',[dict(start=0,end=8)],verify,6)
+        self.assertEqual(len(seen),2)
+        self.assertEqual(result['results'][0]['frame_times'],seen[-1])
+        self.assertEqual(result['results'][0]['frame_times'][1],2.5)
 if __name__=='__main__': unittest.main()
