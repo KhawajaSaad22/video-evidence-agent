@@ -68,21 +68,54 @@ def digest(path):
     return h.hexdigest()
 
 def build(video,output,step=2.,max_frames=600,device='auto'):
-    if step<=0 or max_frames<1: raise ValueError('Positive step and frame limit required')
+    if not np.isfinite(step) or step<=0 or max_frames<1: raise ValueError('Positive finite step and frame limit required')
     video=Path(video).resolve(); output=Path(output)
     if output.exists(): raise ValueError('Use a new index folder to avoid overwriting an index')
     info=video_info(video); times=np.arange(0,info['duration'],step)
     if len(times)>max_frames: raise ValueError('Frame budget exceeded; increase --step or --max-frames explicitly')
-    vision=Vision(device); output.mkdir(parents=True); (output/'frames').mkdir()
-    vectors=[]
-    for start in range(0,len(times),8):
-        images=[read_frame(video,t) for t in times[start:start+8]]
-        vectors.extend(vision.images(images))
-        for i,im in enumerate(images,start): im.save(output/'frames'/f'{i:06}.jpg')
-    np.savez_compressed(output/'features.npz',vectors=np.array(vectors),times=times)
-    metadata=dict(version=1,model=MODEL,video=str(video),sha256=digest(video),step=step,encoding_device=vision.device,**info)
-    (output/'index.json').write_text(json.dumps(metadata,indent=2),encoding='utf-8')
-    return metadata
+    original_hash=digest(video)
+    output.mkdir(parents=True);(output/'frames').mkdir()
+    status=output/'run.json'
+    status.write_text(json.dumps(dict(status='running')),encoding='utf-8')
+    try:
+        vision=Vision(device);vectors=[]
+        for start in range(0,len(times),8):
+            images=[read_frame(video,t) for t in times[start:start+8]]
+            vectors.extend(vision.images(images))
+            for i,im in enumerate(images,start): im.save(output/'frames'/f'{i:06}.jpg')
+        if digest(video)!=original_hash:raise ValueError('Video changed during indexing; rebuild from a stable source')
+        np.savez_compressed(output/'features.npz',vectors=np.array(vectors),times=times)
+        metadata=dict(version=1,model=MODEL,video=str(video),sha256=original_hash,step=step,encoding_device=vision.device,
+                      features_sha256=digest(output/'features.npz'),sample_count=len(times),**info)
+        load_features(output,metadata)
+        (output/'index.json').write_text(json.dumps(metadata,indent=2),encoding='utf-8')
+        status.write_text(json.dumps(dict(status='completed',sample_count=len(times))),encoding='utf-8')
+        return metadata
+    except Exception as exc:
+        status.write_text(json.dumps(dict(status='failed',error=str(exc))),encoding='utf-8')
+        raise
+
+
+def load_features(index,meta):
+    """Validate persisted CLIP arrays before loading a model or decoding more frames."""
+    index=Path(index)
+    if not isinstance(meta,dict) or meta.get('version')!=1 or meta.get('model')!=MODEL:raise ValueError('Unsupported index; rebuild it')
+    for key in ('duration','step','fps'):
+        value=meta.get(key)
+        if type(value) not in (int,float) or not np.isfinite(value) or value<=0:raise ValueError('Invalid video index metadata; rebuild it')
+    feature_path=index/'features.npz'
+    if meta.get('features_sha256') and digest(feature_path)!=meta['features_sha256']:
+        raise ValueError('Feature archive changed; rebuild the index')
+    try:
+        with np.load(feature_path,allow_pickle=False) as archive:times=archive['times'];vectors=archive['vectors']
+        valid=(times.ndim==1 and len(times)>0 and vectors.shape==(len(times),512)
+               and np.issubdtype(times.dtype,np.number) and np.issubdtype(vectors.dtype,np.floating)
+               and np.isfinite(times).all() and np.isfinite(vectors).all()
+               and (times>=0).all() and (times<meta['duration']).all() and (np.diff(times)>0).all()
+               and np.all(np.linalg.norm(vectors,axis=1)>0))
+    except (KeyError,ValueError,TypeError) as exc:raise ValueError('Invalid feature archive; rebuild the index') from exc
+    if not valid or meta.get('sample_count',len(times))!=len(times):raise ValueError('Inconsistent video features; rebuild the index')
+    return times,vectors
 
 def candidates(times,scores,duration,step,top_k=3):
     result=[]
@@ -96,10 +129,13 @@ def candidates(times,scores,duration,step,top_k=3):
 def query(index,question,top_k=3,refine_budget=12,min_score=None,device='auto'):
     if not question.strip(): raise ValueError('Enter a question')
     if top_k<1 or refine_budget<0: raise ValueError('Invalid retrieval budgets')
-    index=Path(index); meta=json.loads((index/'index.json').read_text(encoding='utf-8'))
-    if meta.get('version')!=1 or meta['model']!=MODEL: raise ValueError('Unsupported index')
+    index=Path(index)
+    if (index/'run.json').exists():
+        status=json.loads((index/'run.json').read_text(encoding='utf-8'))
+        if status.get('status')!='completed':raise ValueError('Index build is incomplete or failed; use a completed index')
+    meta=json.loads((index/'index.json').read_text(encoding='utf-8'))
+    times,vectors=load_features(index,meta)
     if digest(meta['video'])!=meta['sha256']: raise ValueError('Video changed; rebuild its index')
-    with np.load(index/'features.npz',allow_pickle=False) as f: times=f['times']; vectors=f['vectors']
     vision=Vision(device); text=vision.text(question); scores=vectors@text
     proposed=candidates(times,scores,meta['duration'],meta['step'],top_k)
     trace=[dict(action='retrieve',frames=len(times),candidates=len(proposed))]

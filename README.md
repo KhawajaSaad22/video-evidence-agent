@@ -179,3 +179,9 @@ Choose a text model for RAG or a vision-capable model for video verification, th
 its installed name in the UI. Ollama is accessible only inside the Compose network;
 no host port is published. `OLLAMA_BASE_URL` selects the service endpoint. This optional
 service also runs on CPU. Its model quality and memory needs depend on my selection.
+
+## Index lifecycle update — 13 November 2026
+
+New indexes retain run.json with running/completed/failed status and error diagnostics. Queries reject unfinished/failed builds before loading CLIP. Features are checked for aligned shapes, finite values, increasing in-range timestamps and the expected CLIP feature dimension. New metadata binds features.npz with a SHA-256 and sample count. The source video is hashed before and after indexing to reject edits during the build.
+
+Failed folders are retained for inspection; retry with a new output folder. Legacy version-1 indexes without lifecycle/hash fields still pass schema checks and source-video identity checks. These hashes detect accidental changes; they are not authenticated signatures. Whole-video build/search integration is checked with generated footage and cached CLIP on CUDA, not real-query accuracy. Resumable indexing and batched multi-video search remain future work.
