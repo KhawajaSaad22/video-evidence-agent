@@ -1,5 +1,8 @@
 # Video evidence-search agent — project 2
 
+CLIP encoding can use CUDA. See [GPU.md](GPU.md) for the optional GPU container;
+the default published image uses CPU PyTorch.
+
 Reliability update: second-pass verifier frames remain chronologically ordered with
 their timestamps and evidence references. In evaluation manifests, use an empty
 `relevant_intervals` list for a negative query. Negative false-positive rate is
