@@ -15,6 +15,8 @@ def normalize(x): return x / np.maximum(np.linalg.norm(x,axis=-1,keepdims=True),
 class Vision:
     def __init__(self,device='auto'):
         from transformers import CLIPModel, AutoTokenizer
+        if device not in ('auto','cpu','cuda'):raise ValueError('Device must be auto, cpu or cuda')
+        if device=='cuda' and not torch.cuda.is_available():raise ValueError('CUDA requested but unavailable')
         self.device=('cuda' if torch.cuda.is_available() else 'cpu') if device=='auto' else device
         self.model=CLIPModel.from_pretrained(MODEL).to(self.device).eval()
         self.tokenizer=AutoTokenizer.from_pretrained(MODEL)
@@ -78,7 +80,7 @@ def build(video,output,step=2.,max_frames=600,device='auto'):
         vectors.extend(vision.images(images))
         for i,im in enumerate(images,start): im.save(output/'frames'/f'{i:06}.jpg')
     np.savez_compressed(output/'features.npz',vectors=np.array(vectors),times=times)
-    metadata=dict(version=1,model=MODEL,video=str(video),sha256=digest(video),step=step,**info)
+    metadata=dict(version=1,model=MODEL,video=str(video),sha256=digest(video),step=step,encoding_device=vision.device,**info)
     (output/'index.json').write_text(json.dumps(metadata,indent=2),encoding='utf-8')
     return metadata
 
@@ -116,7 +118,7 @@ def query(index,question,top_k=3,refine_budget=12,min_score=None,device='auto'):
         refined.append(record)
     refined.sort(key=lambda r:-r.get('refined_similarity',r['similarity']))
     if min_score is not None: refined=[r for r in refined if r.get('refined_similarity',r['similarity'])>=min_score]
-    return dict(question=question,video=meta['video'],results=refined,trace=trace,
+    return dict(question=question,video=meta['video'],results=refined,trace=trace,encoding_device=vision.device,
                 additional_frames=read_count,abstained=not bool(refined),
                 warning='Visual similarity candidates, not verified answers. No calibrated confidence or action-order reasoning.')
 

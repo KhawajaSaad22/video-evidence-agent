@@ -19,13 +19,18 @@ Versions remain compatibility ranges, so record/lock the validated deployment st
 
 ## GPU workload
 
-CLIP image/text encoding already accepts --device auto|cpu|cuda. Use --device cuda on the index/search commands when GPU execution must be required. Video decoding, file hashing, interval bookkeeping and stored NumPy search are still CPU operations.
+CLIP image/text encoding accepts --device auto|cpu|cuda. Explicit CUDA fails before loading weights when unavailable. Index/query metadata records the encoding device. Decoding, hashing, interval bookkeeping and stored NumPy search remain on CPU.
 
 ## Validation status — 13 November 2026
 
-The override parses successfully. GPU visibility and real student-model training were
-verified on my RTX 4060 in the annotation-assistant project using the existing Linux
-CUDA image (PyTorch 2.15.0+cu132). This repository's complete GPU application image
-and its real model path have not been independently executed in this update.
-The CPU container and its normal tests remain available. No performance or accuracy
-improvement is claimed without measuring the actual model/input workload.
+Real openai/clip-vit-base-patch32 image/text encoding ran on cuda:0 using generated images, producing finite normalized 2×512 image features and 512 text features.
+
+Verified on my RTX 4060 in a local Linux container with PyTorch 2.15.0+cu132 / CUDA 13.2 using cached weights. These are real model execution checks on synthetic fixtures, not accuracy or speed benchmarks. The complete application GPU image was not independently rebuilt in this patch. CPU CI does not validate CUDA.
+
+To repeat in a CUDA-capable environment containing dependencies and cached weights:
+
+```sh
+python gpu_validate.py --device cuda --output artifacts/gpu-validation.json
+```
+
+The output path must be new. Validation defaults to offline model loading; --allow-download explicitly permits downloads. No real inspection dataset is needed.
